@@ -20,7 +20,7 @@ class BufferedPolyFit:
             np.concatenate(self.x_buffer),
             np.concatenate(self.y_buffer),
             self.order,
-            w=sum([[i+1]*len(self.x_buffer[i]) for i in range(len(self.x_buffer))], [])
+            #w=sum([[i+1]*len(self.x_buffer[i]) for i in range(len(self.x_buffer))], [])
         ))
 
     def fit(self, x, y):
@@ -59,6 +59,9 @@ class LaneDetector:
 
     def get_lane_points(self, img, offset=0):
         y, x = np.nonzero(img)
+        i = np.random.choice(len(x), 2000)
+        y = y[i]
+        x = x[i]        
         
         keep = [np.array([], np.uint8), np.array([], np.uint8)]
         discard = [np.array([], np.uint8), np.array([], np.uint8)]
@@ -70,7 +73,7 @@ class LaneDetector:
             if not len(in_row):
                 continue
 
-            if np.std(x[in_row]) < 50:
+            if np.std(x[in_row]) < 100:
                 keep[0] = np.concatenate((keep[0], y[in_row]))
                 keep[1] = np.concatenate((keep[1], x[in_row]))
             else:
