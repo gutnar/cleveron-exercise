@@ -136,7 +136,7 @@ class LaneDetector:
             else:
                 turn = "paremale"
             
-            lane_center = self.right_poly.last_fit(self.camera.height) - self.left_poly.last_fit(self.camera.height)
+            lane_center = self.right_poly.last_fit(self.camera.height) + self.left_poly.last_fit(self.camera.height) / 2
             lane_position = (self.camera.width / 2 - lane_center) / self.pixels_per_meter
             lane_position = self.lane_position_buffer.get(lane_position)
             
