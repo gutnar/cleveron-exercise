@@ -5,7 +5,7 @@ from buffered_poly_fit import BufferedPolyFit
 
 
 class LaneDetector:
-    def __init__(self, camera, perspective, color_mask, fit_sample_size=5000, y_check_steps=15, max_x_std=100):
+    def __init__(self, camera, perspective, color_mask, fit_sample_size=5000, y_check_steps=15, max_x_std=75, pixels_per_meter=300):
         self.camera = camera
         self.perspective = perspective
         self.left_poly = BufferedPolyFit(2)
@@ -14,6 +14,7 @@ class LaneDetector:
         self.color_mask = color_mask
         self.y_check_steps = y_check_steps
         self.max_x_std = max_x_std
+        self.pixels_per_meter = pixels_per_meter
 
     def apply_color_mask(self, img):
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -117,8 +118,29 @@ class LaneDetector:
             cv2.imwrite("%s/6-fit.jpg" % save_images, img)
 
         # Transform lanes onto original image
-        img = cv2.add(raw, self.camera.redistort(self.perspective.invert(img)))
+        img = cv2.addWeighted(raw, 1, self.camera.redistort(self.perspective.invert(img)), 0.5, 0)
         
+        # Write curvature and position information
+        if self.left_poly.last_fit and self.right_poly.last_fit:
+            curvature = (self.left_poly.get_curvature(self.camera.height) +\
+                self.left_poly.get_curvature(self.camera.height)) / self.pixels_per_meter
+            
+            if abs(curvature) > 50:
+                turn = "otse"
+            elif curvature < 0:
+                turn = "vasakule"
+            else:
+                turn = "paremale"
+            
+            lane_center = self.right_poly.last_fit(self.camera.height) - self.left_poly.last_fit(self.camera.height)
+            lane_position = (self.camera.width / 2 - lane_center) / self.pixels_per_meter
+            
+            cv2.putText(img, "Kurvi raadius: %.2f m (%s)" % (curvature, turn), (10, 20),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            
+            cv2.putText(img, "Asukoht keskjoone suhtes: %.2f m" % lane_position, (10, 40),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
         if save_images:
             cv2.imwrite("%s/7-final.jpg" % save_images, img)
 
