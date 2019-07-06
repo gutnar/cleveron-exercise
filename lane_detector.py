@@ -2,10 +2,11 @@ import cv2
 import numpy as np
 import os
 from buffered_poly_fit import BufferedPolyFit
+from buffered_number import BufferedNumber
 
 
 class LaneDetector:
-    def __init__(self, camera, perspective, color_mask, fit_sample_size=5000, y_check_steps=15, max_x_std=75, pixels_per_meter=300):
+    def __init__(self, camera, perspective, color_mask, fit_sample_size=5000, y_check_steps=15, max_x_std=50, pixels_per_meter=300):
         self.camera = camera
         self.perspective = perspective
         self.left_poly = BufferedPolyFit(2)
@@ -15,6 +16,8 @@ class LaneDetector:
         self.y_check_steps = y_check_steps
         self.max_x_std = max_x_std
         self.pixels_per_meter = pixels_per_meter
+        self.curvature_buffer = BufferedNumber()
+        self.lane_position_buffer = BufferedNumber()
 
     def apply_color_mask(self, img):
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -124,8 +127,9 @@ class LaneDetector:
         if self.left_poly.last_fit and self.right_poly.last_fit:
             curvature = (self.left_poly.get_curvature(self.camera.height) +\
                 self.left_poly.get_curvature(self.camera.height)) / self.pixels_per_meter
+            curvature = self.curvature_buffer.get(curvature)
             
-            if abs(curvature) > 50:
+            if abs(curvature) > 20:
                 turn = "otse"
             elif curvature < 0:
                 turn = "vasakule"
@@ -134,6 +138,7 @@ class LaneDetector:
             
             lane_center = self.right_poly.last_fit(self.camera.height) - self.left_poly.last_fit(self.camera.height)
             lane_position = (self.camera.width / 2 - lane_center) / self.pixels_per_meter
+            lane_position = self.lane_position_buffer.get(lane_position)
             
             cv2.putText(img, "Kurvi raadius: %.2f m (%s)" % (curvature, turn), (10, 20),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)

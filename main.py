@@ -25,7 +25,7 @@ for result in results:
 # HSV color mask
 color_mask = (
     ((20, 50, 75), (110, 255, 255)), # yellow lines
-    ((0, 0, 200), (255, 255, 255)) # white lines
+    ((0, 0, 220), (255, 255, 255)) # white lines
 )
 
 # Process images
@@ -35,6 +35,7 @@ for filename in glob.glob("raw_images/*.jpg"):
 
 # Process video
 cap = cv2.VideoCapture("road.mp4")
+out = cv2.VideoWriter("road_processed.avi", cv2.VideoWriter_fourcc(*'XVID'), 25, (1280, 720))
 detector = LaneDetector(camera, perspective, color_mask)
 i = 0
 
@@ -57,7 +58,10 @@ while cap.isOpened():
     else:
         frame = detector.run(frame)
     
+    out.write(frame)
     cv2.imshow("road.mp4", frame)
 
 cap.release()
+out.release()
+
 cv2.destroyAllWindows()
