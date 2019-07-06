@@ -22,14 +22,21 @@ for result in results:
     cv2.imwrite("OUTPUT/calibration/1-corners%s.jpg" % file_index, result["img"])
     cv2.imwrite("OUTPUT/calibration/2-corners-undistorted-%s.jpg" % file_index, camera.undistort(result["img"]))
 
+# HSV color mask
+color_mask = (
+    ((20, 50, 75), (110, 255, 255)), # yellow lines
+    ((0, 0, 200), (255, 255, 255)) # white lines
+)
+
 # Process images
 for filename in glob.glob("raw_images/*.jpg"):
-    detector = LaneDetector(camera, perspective)
+    detector = LaneDetector(camera, perspective, color_mask)
     detector.run(cv2.imread(filename), "OUTPUT/test%s" % filename[-5])
 
 # Process video
 cap = cv2.VideoCapture("road.mp4")
-detector = LaneDetector(camera, perspective)
+detector = LaneDetector(camera, perspective, color_mask)
+i = 0
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -37,7 +44,11 @@ while cap.isOpened():
     if not ret:
         break
 
-    key = cv2.waitKey(25)
+    i += 1
+    #if i < 1000:
+    #    continue
+
+    key = cv2.waitKey(5)
 
     if key & 0xFF == ord("s"):
         frame = detector.run(frame, "OUTPUT/frame")

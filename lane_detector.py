@@ -1,71 +1,42 @@
 import cv2
 import numpy as np
 import os
-
-
-class BufferedPolyFit:
-    def __init__(self, order, size=5, max_skip=3):
-        self.order = order
-        self.size = size
-        self.max_skip = max_skip
-        self.x_buffer = []
-        self.y_buffer = []
-        self.skipped = 0
-    
-    def get_buffered_fit(self):
-        if not len(self.x_buffer):
-            return None
-        
-        return np.poly1d(np.polyfit(
-            np.concatenate(self.x_buffer),
-            np.concatenate(self.y_buffer),
-            self.order,
-            #w=sum([[i+1]*len(self.x_buffer[i]) for i in range(len(self.x_buffer))], [])
-        ))
-
-    def fit(self, x, y):
-        current_fit = self.get_buffered_fit()
-
-        if not len(x):
-            return current_fit
-        
-        self.x_buffer.append(x)
-        self.y_buffer.append(y)
-
-        if len(self.x_buffer) > self.size:
-            self.x_buffer.pop(0)
-            self.y_buffer.pop(0)
-
-        return self.get_buffered_fit()
+from buffered_poly_fit import BufferedPolyFit
 
 
 class LaneDetector:
-    def __init__(self, camera, perspective, hood_size=15):
+    def __init__(self, camera, perspective, color_mask, fit_sample_size=5000, y_check_steps=15, max_x_std=100):
         self.camera = camera
         self.perspective = perspective
         self.left_poly = BufferedPolyFit(2)
         self.right_poly = BufferedPolyFit(2)
-        self.hood_size = hood_size
+        self.fit_sample_size = fit_sample_size
+        self.color_mask = color_mask
+        self.y_check_steps = y_check_steps
+        self.max_x_std = max_x_std
 
     def apply_color_mask(self, img):
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        mask = np.zeros(img.shape[:2], np.uint8)
 
-        mask_yellow = cv2.inRange(hsv, np.array([20, 50, 75]), np.array([110, 255, 255]))
-        mask_white = cv2.inRange(gray, 200, 255)
-        mask_yw = cv2.bitwise_or(mask_white, mask_yellow)
+        for color_range in self.color_mask:
+            mask = cv2.bitwise_or(mask, cv2.inRange(hsv, color_range[0], color_range[1]))
         
-        return cv2.bitwise_and(gray, mask_yw)
+        return cv2.bitwise_and(gray, mask)
 
     def get_lane_points(self, img, offset=0):
         y, x = np.nonzero(img)
-        i = np.random.choice(len(x), 2000)
+
+        # Sample fewer points without replacement to improve processing speed
+        i = np.random.choice(len(x), self.fit_sample_size)
         y = y[i]
         x = x[i]        
         
+        # Keep points where deviation along x-axis is not too big
         keep = [np.array([], np.uint8), np.array([], np.uint8)]
         discard = [np.array([], np.uint8), np.array([], np.uint8)]
-        step = img.shape[0] // 10
+        step = img.shape[0] // self.y_check_steps
 
         for row in range(0, img.shape[0], step):
             in_row = np.where((y >= row) & (y <= row + step))
@@ -73,7 +44,7 @@ class LaneDetector:
             if not len(in_row):
                 continue
 
-            if np.std(x[in_row]) < 100:
+            if np.std(x[in_row]) < self.max_x_std:
                 keep[0] = np.concatenate((keep[0], y[in_row]))
                 keep[1] = np.concatenate((keep[1], x[in_row]))
             else:
@@ -96,8 +67,9 @@ class LaneDetector:
         left_line = self.left_poly.fit(left[0], left[1])
         right_line = self.right_poly.fit(right[0], right[1])
         
+        # Draw lane
         if left_line and right_line:
-            for y in range(img.shape[0] - self.hood_size):
+            for y in range(img.shape[0]):
                 l, r = int(left_line(y)), int(right_line(y))
                 cv2.line(output, (l, y), (r, y), (0, 255, 0), 1)
 
@@ -132,9 +104,8 @@ class LaneDetector:
         if save_images:
             cv2.imwrite("%s/3-birds-eye-view.jpg" % save_images, img)
 
-        # Apply lane color mask and crop car hood
+        # Apply lane color mask
         img = self.apply_color_mask(img)
-        img[img.shape[0] - self.hood_size:,:] = 0
 
         if save_images:
             cv2.imwrite("%s/4-color-mask.jpg" % save_images, img)
