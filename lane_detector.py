@@ -4,7 +4,7 @@ import os
 
 
 class BufferedPolyFit:
-    def __init__(self, order, size=3, max_skip=3):
+    def __init__(self, order, size=5, max_skip=3):
         self.order = order
         self.size = size
         self.max_skip = max_skip
@@ -19,7 +19,8 @@ class BufferedPolyFit:
         return np.poly1d(np.polyfit(
             np.concatenate(self.x_buffer),
             np.concatenate(self.y_buffer),
-            self.order
+            self.order,
+            w=sum([[i+1]*len(self.x_buffer[i]) for i in range(len(self.x_buffer))], [])
         ))
 
     def fit(self, x, y):
@@ -27,16 +28,6 @@ class BufferedPolyFit:
 
         if not len(x):
             return current_fit
-        
-        if current_fit:
-            local_fit = np.polyfit(x, y, 2)
-
-            # Skip weird fits
-            if abs(local_fit[0]) > 0.0002 or abs(local_fit[2]) > 2000 and self.skipped < self.max_skip:
-                self.skipped += 1
-                return current_fit
-            else:
-                self.skipped = 0
         
         self.x_buffer.append(x)
         self.y_buffer.append(y)
@@ -60,7 +51,7 @@ class LaneDetector:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-        mask_yellow = cv2.inRange(hsv, np.array([20, 50, 50]), np.array([110, 255, 255]))
+        mask_yellow = cv2.inRange(hsv, np.array([20, 50, 75]), np.array([110, 255, 255]))
         mask_white = cv2.inRange(gray, 200, 255)
         mask_yw = cv2.bitwise_or(mask_white, mask_yellow)
         

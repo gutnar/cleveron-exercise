@@ -15,3 +15,14 @@ np.array([1, 2, 3])[np.array([1])]
 
 
 #%%
+import numpy as np
+
+a = np.array([1, 1, 2, 3, 4, 4, 5, 9])
+a
+
+#%%
+hist = np.histogram(a, 10, (0, 10))[0]
+hist
+
+#%%
+hist[a]

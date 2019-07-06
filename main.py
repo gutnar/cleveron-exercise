@@ -37,12 +37,16 @@ while cap.isOpened():
     if not ret:
         break
 
-    frame = detector.run(frame)
-    cv2.imshow("road.mp4", frame)
+    key = cv2.waitKey(25)
 
-    if cv2.waitKey(25) & 0xFF == ord("q"):
-        cv2.imwrite("test.jpg", frame)
+    if key & 0xFF == ord("s"):
+        frame = detector.run(frame, "OUTPUT/frame")
+    elif key & 0xFF == ord("q"):
         break
+    else:
+        frame = detector.run(frame)
+    
+    cv2.imshow("road.mp4", frame)
 
 cap.release()
 cv2.destroyAllWindows()
